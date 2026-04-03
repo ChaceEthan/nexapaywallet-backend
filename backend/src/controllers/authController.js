@@ -1,10 +1,6 @@
 const User = require("../models/User");
-
-function generateToken(userId, email) {
-  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-  const payload = Buffer.from(JSON.stringify({ userId, email, iat: Math.floor(Date.now() / 1000) })).toString("base64url");
-  return `${header}.${payload}.signature`;
-}
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 
 function generateRandomWalletAddress() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -23,18 +19,23 @@ async function signup(req, res) {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({ message: "User already exists" });
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
     const walletAddress = req.body.walletAddress || generateRandomWalletAddress();
 
     const user = new User({
       firstName,
       lastName,
       email,
-      password,
+      password: hashedPassword,
       country,
       phoneNumber,
       walletAddress,
@@ -42,7 +43,11 @@ async function signup(req, res) {
 
     await user.save();
 
-    const token = generateToken(user._id, user.email);
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET || "secret",
+      { expiresIn: "7d" }
+    );
 
     return res.status(201).json({
       message: "User created successfully",
@@ -65,11 +70,20 @@ async function signin(req, res) {
     }
 
     const user = await User.findOne({ email });
-    if (!user || user.password !== password) {
+    if (!user) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const token = generateToken(user._id, user.email);
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET || "secret",
+      { expiresIn: "7d" }
+    );
 
     return res.json({
       message: "Sign in successful",
