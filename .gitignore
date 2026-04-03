@@ -18,6 +18,9 @@ coverage
 
 # Production builds
 dist
+
+# Environment variables
+.env
 dist-ssr
 *.local
 
