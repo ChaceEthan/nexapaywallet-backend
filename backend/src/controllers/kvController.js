@@ -1,3 +1,4 @@
+// @ts-nocheck
 const KVStore = require("../models/KVStore");
 
 async function getValue(req, res) {

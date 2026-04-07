@@ -1,16 +1,18 @@
+// @ts-nocheck
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 
-function generateRandomWalletAddress() {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  let address = "G";
-  for (let i = 1; i < 56; i += 1) {
-    address += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return address;
+// Generate JWT
+function generateToken(user) {
+  return jwt.sign(
+    { userId: user._id, email: user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 }
 
+// SIGNUP
 async function signup(req, res) {
   try {
     const { firstName, lastName, email, password, country, phoneNumber } = req.body;
@@ -23,78 +25,57 @@ async function signup(req, res) {
       return res.status(400).json({ message: "Password must be at least 6 characters" });
     }
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    const exists = await User.findOne({ email });
+    if (exists) {
       return res.status(409).json({ message: "User already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const walletAddress = req.body.walletAddress || generateRandomWalletAddress();
+    const hashed = await bcrypt.hash(password, 10);
 
-    const user = new User({
+    const user = await User.create({
       firstName,
       lastName,
       email,
-      password: hashedPassword,
+      password: hashed,
       country,
-      phoneNumber,
-      walletAddress,
+      phoneNumber
     });
 
-    await user.save();
+    const token = generateToken(user);
 
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET || "secret",
-      { expiresIn: "7d" }
-    );
-
-    return res.status(201).json({
-      message: "User created successfully",
+    res.status(201).json({
+      message: "User created",
       email: user.email,
-      walletAddress: user.walletAddress,
-      token,
+      token
     });
-  } catch (error) {
-    console.error("Signup error:", error);
-    return res.status(500).json({ message: "Error creating user", error: error.message });
+
+  } catch (err) {
+    res.status(500).json({ message: "Signup error", error: err.message });
   }
 }
 
+// SIGNIN
 async function signin(req, res) {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
-    }
-
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ message: "Invalid email or password" });
-    }
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) {
-      return res.status(401).json({ message: "Invalid email or password" });
-    }
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET || "secret",
-      { expiresIn: "7d" }
-    );
+    const token = generateToken(user);
 
-    return res.json({
-      message: "Sign in successful",
-      email: user.email,
-      walletAddress: user.walletAddress,
+    res.json({
+      message: "Login successful",
       token,
-      userId: user._id,
+      email: user.email,
+      walletAddress: user.walletAddress
     });
-  } catch (error) {
-    console.error("Signin error:", error);
-    return res.status(500).json({ message: "Error signing in", error: error.message });
+
+  } catch (err) {
+    res.status(500).json({ message: "Signin error", error: err.message });
   }
 }
 
