@@ -1,3 +1,10 @@
+require('dotenv').config();
+const express = require("express");
+const cors = require("cors");
+
+const app = express(); // ✅ mbere ya byose
+
+// CORS
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5176",
@@ -17,4 +24,7 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
-})); 
+}));
+
+// Middleware
+app.use(express.json());
