@@ -1,4 +1,4 @@
-// Load environment variables
+// @ts-nocheck
 require('dotenv').config({ path: './backend/.env' }); 
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
@@ -12,19 +12,15 @@ const client = new MongoClient(uri, {
   }
 });
 
-async function run() {
-  try {
+let db;
+
+async function connectDB() {
+  if (!db) {
     await client.connect();
-    // Ping the admin database to verify connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("✅ Ping Successful: You successfully connected to MongoDB!");
-  } catch (err) {
-    console.error("❌ Ping Failed:", err.message);
-  } finally {
-    await client.close();
+    db = client.db("nexapay"); // <-- shyiramo izina rya DB yawe
+    console.log("✅ Connected to MongoDB");
   }
+  return db;
 }
 
-run();
-
-module.exports = client;
+module.exports = connectDB;
