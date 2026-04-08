@@ -2,11 +2,11 @@
   "name": "nexapay-backend",
   "version": "1.0.0",
   "description": "NexaPay Backend - Wallet & Blockchain Payment System",
-  "main": "index.js",
+  "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^15.0.1",
