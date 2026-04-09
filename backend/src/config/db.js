@@ -1,19 +1,16 @@
+// src/config/db.js
 const mongoose = require("mongoose");
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/nexapay";
+const MONGO_URI = process.env.MONGO_URI;
 
-function connectDb() {
-  mongoose.set("strictQuery", true);
-
-  return mongoose
-    .connect(MONGO_URI)
-    .then(() => {
-      console.log("? MongoDB connected to", MONGO_URI);
-    })
-    .catch((error) => {
-      console.error("? MongoDB connection error:", error);
-      throw error;
-    });
+async function connectDb() {
+  try {
+    await mongoose.connect(MONGO_URI);
+    console.log("✅ MongoDB connected");
+  } catch (error) {
+    console.error("❌ MongoDB connection error:", error.message);
+    process.exit(1);
+  }
 }
 
-module.exports = { connectDb, MONGO_URI };
+module.exports = { connectDb };
