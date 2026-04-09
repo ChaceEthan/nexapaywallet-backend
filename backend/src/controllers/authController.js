@@ -35,12 +35,15 @@ exports.signup = async (req, res) => {
     return res.status(500).json({ message: "Something went wrong" });
   }
 };
-
-
+ 
 // SIGNIN
 exports.signin = async (req, res) => {
   try {
     let { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Missing fields" });
+    }
 
     email = email.trim().toLowerCase();
 
@@ -72,4 +75,4 @@ exports.signin = async (req, res) => {
     console.error(error);
     return res.status(500).json({ message: "Something went wrong" });
   }
-}; 
+};
