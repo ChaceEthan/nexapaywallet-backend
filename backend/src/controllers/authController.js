@@ -1,78 +1,41 @@
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-
-// SIGNUP
+const bcrypt = require("bcrypt");
+ 
 exports.signup = async (req, res) => {
+  const { email, password } = req.body;
   try {
-    let { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: "Missing fields" });
-    }
-
-    email = email.trim().toLowerCase();
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newUser = await User.create({
-      email,
-      password: hashedPassword
-    });
-
-    return res.status(201).json({
-      message: "Signup successful",
-      user: { id: newUser._id, email: newUser.email }
-    });
-
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Something went wrong" });
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await User.create({ email, password: hashed });
+    res.status(201).json({ message: "Signup successful", user: { id: user._id, email } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 };
- 
-// SIGNIN
+
 exports.signin = async (req, res) => {
+  const { email, password } = req.body;
   try {
-    let { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: "Missing fields" });
-    }
-
-    email = email.trim().toLowerCase();
-
     const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
-    if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(400).json({ message: "Invalid credentials" });
 
-    const match = await bcrypt.compare(password, user.password);
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
-    if (!match) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
-    const token = jwt.sign(
-      { id: user._id, email: user.email },
-      process.env.JWT_SECRET || "secret",
-      { expiresIn: "1d" }
-    );
-
-    return res.status(200).json({
-      message: "Signin successful",
-      token,
-      user: { id: user._id, email: user.email }
+    // ✅ Set cookie for cross-domain
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,        // HTTPS only
+      sameSite: "none",    // cross-site cookie
+      maxAge: 24 * 60 * 60 * 1000
     });
 
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Something went wrong" });
+    res.json({ message: "Signin successful", user: { id: user._id, email: user.email } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 };

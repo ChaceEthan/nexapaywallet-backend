@@ -1,4 +1,4 @@
- require("dotenv").config();
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -19,16 +19,15 @@ app.use(helmet());
 // ✅ Middleware
 app.use(express.json());
 
-// ✅ CORS (dynamic, production + localhost)
+// ✅ CORS
 const allowedOrigins = [
-  'http://localhost:5173',                  // Local dev
-  'http://localhost:5176',                  // Local dev
-  'https://nexapay-wallet-z45m.vercel.app' // Production Vercel
+  process.env.FRONTEND_URL_LOCAL || "http://localhost:5173",
+  "http://localhost:5176",
+  process.env.FRONTEND_URL_PROD || "https://nexapay-wallet-z45m.vercel.app"
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // undefined origin is allowed for tools like Postman / server-to-server requests
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -37,6 +36,13 @@ app.use(cors({
     }
   },
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  credentials: true,
+  allowedHeaders: ['Content-Type','Authorization']
+}));
+
+// ✅ Handle preflight requests
+app.options("*", cors({
+  origin: allowedOrigins,
   credentials: true
 }));
 
@@ -46,14 +52,10 @@ app.use("/api", walletRoutes);
 app.use("/api", kvRoutes);
 
 // ✅ Health check (IMPORTANT for Render)
-app.get("/health", (req, res) => {
-  res.status(200).send("OK");
-});
+app.get("/health", (req, res) => res.status(200).send("OK"));
 
 // ✅ Default route
-app.get("/", (req, res) => {
-  res.send("🚀 NexaPay Backend Running");
-});
+app.get("/", (req, res) => res.send("🚀 NexaPay Backend Running"));
 
 // ✅ Start server AFTER DB
 const PORT = process.env.PORT || 10000;
@@ -61,7 +63,7 @@ const PORT = process.env.PORT || 10000;
 connectDb()
   .then(() => {
     console.log("✅ MongoDB connected");
-      app.listen(PORT, "0.0.0.0", () => {
+    app.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
   })
