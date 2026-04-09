@@ -1,0 +1,22 @@
+* [33m1ee01dc[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Resolved lock issue and added files
+* [33ma8d313a[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix CORS completely (localhost + production)
+* [33m746226d[m Fix CORS, JWT cookie, signin for mobile + Vercel production
+* [33me1f6034[m Fix CORS, JWT cookie, signin for mobile + Vercel production
+* [33m5ed2e80[m Fix CORS for Vercel production frontend
+* [33med67297[m Fix: CORS issue, improved server.js for Render + frontend compatibility
+* [33m0c81205[m Remove MongoClient and fix DB connection
+* [33me4c9f4f[m Remove MongoClient and fix DB connection
+* [33m2432870[m ✅ Add helmet, update server.js with CORS and MongoDB connection
+* [33m1d97916[m Fix app not defined error (CORS order)
+* [33me038441[m Fix CORS for localhost and Vercel
+* [33m41c792e[m Add output.txt
+* [33m5da6b82[m Add server.js as main backend entry point
+* [33mf56d3f3[m Fix: backend router initialization and update mongodb connection utility
+* [33m4949b55[m Fix backend CORS and stabilize API routes
+* [33ma0dacda[m Fix backend CORS and stabilize API routes
+* [33m4ddd286[m Backend full cleanup, structure fix, auth + wallet working
+* [33mc704ee0[m Duplicate backend into backend/ folder for deployment, keep root files intact
+* [33m60e77b2[m Add full backend structure for deployment
+* [33m0aa8f8a[m Restore backend structure into /backend folder and fix paths
+* [33mc44596e[m Fix MongoDB warnings, validate backend login/signup/connect wallet functionality
+* [33m3ce878f[m Move backend files to root for Render deployment
