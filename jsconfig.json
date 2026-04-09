@@ -1,10 +1,12 @@
 {
-  "compilerOptions": {
-    "module": "commonjs",
-    "target": "ES2020",
-    "checkJs": false
+  "name": "nexapay-backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
-  "exclude": [
-    "node_modules"
-  ]
+  "engines": {
+    "node": ">=18"
+  }
 }
