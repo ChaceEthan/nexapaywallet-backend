@@ -19,23 +19,26 @@ app.use(helmet());
 // ✅ Middleware
 app.use(express.json());
 
-// ✅ Allowed origins (production only here)
+// ✅ Allowed production origin
 const allowedOrigins = [
   process.env.FRONTEND_URL_PROD || "https://nexapay-wallet-z45m.vercel.app"
 ];
 
-// ✅ Dynamic CORS (BEST PRACTICE)
+// ✅ CORS CONFIG (FIXED FULLY)
 const corsOptions = {
   origin: (origin, callback) => {
-    // allow tools like Postman or server-to-server
+    // allow Postman / mobile apps / curl
     if (!origin) return callback(null, true);
 
-    // allow ALL localhost (5173, 5174, etc)
-    if (origin.startsWith("http://localhost")) {
+    // ✅ allow ALL localhost (5173, 5174, etc)
+    if (
+      origin.startsWith("http://localhost") ||
+      origin.startsWith("http://127.0.0.1")
+    ) {
       return callback(null, true);
     }
 
-    // allow production frontend
+    // ✅ allow production frontend
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
@@ -43,6 +46,7 @@ const corsOptions = {
     console.warn("❌ Blocked by CORS:", origin);
     callback(new Error("Not allowed by CORS"));
   },
+
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -51,7 +55,7 @@ const corsOptions = {
 // ✅ Apply CORS
 app.use(cors(corsOptions));
 
-// ✅ Handle preflight properly
+// ✅ Handle preflight requests properly
 app.options("*", cors(corsOptions));
 
 // ✅ Routes
@@ -59,18 +63,21 @@ app.use("/api", authRoutes);
 app.use("/api", walletRoutes);
 app.use("/api", kvRoutes);
 
-// ✅ Health check
+// ✅ Health check (important for Render)
 app.get("/health", (req, res) => res.status(200).send("OK"));
 
 // ✅ Default route
-app.get("/", (req, res) => res.send("🚀 NexaPay Backend Running"));
+app.get("/", (req, res) => {
+  res.send("🚀 NexaPay Backend Running");
+});
 
-// ✅ Start server AFTER DB
+// ✅ Start server AFTER DB connection
 const PORT = process.env.PORT || 10000;
 
 connectDb()
   .then(() => {
     console.log("✅ MongoDB connected");
+
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
