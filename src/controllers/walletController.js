@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const axios = require("axios");
 
+// ================= GET BALANCE =================
 async function getBalance(req, res) {
   try {
     const userId = req.user.id;
@@ -32,4 +33,81 @@ async function getBalance(req, res) {
   }
 }
 
-module.exports = { getBalance };
+// ================= CONNECT WALLET =================
+async function connectWallet(req, res) {
+  try {
+    const userId = req.user.id;
+    const { walletAddress } = req.body;
+
+    if (!walletAddress) {
+      return res.status(400).json({ message: "Wallet address required" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { walletAddress },
+      { new: true }
+    );
+
+    res.json({
+      message: "Wallet connected",
+      walletAddress: user.walletAddress
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      message: "Connect error",
+      error: err.message
+    });
+  }
+}
+
+// ================= SEND TRANSACTION =================
+async function sendTransaction(req, res) {
+  try {
+    const { toPublicKey, amount } = req.body;
+
+    if (!toPublicKey || !amount) {
+      return res.status(400).json({ message: "Missing fields" });
+    }
+
+    res.json({
+      message: "Transaction prepared",
+      toPublicKey,
+      amount
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      message: "Transaction error",
+      error: err.message
+    });
+  }
+}
+
+// ================= PAYMENT LINK =================
+async function generatePaymentLink(req, res) {
+  try {
+    const { destination, amount } = req.body;
+
+    const link = `web+stellar:pay?destination=${destination}&amount=${amount}&asset_code=XLM`;
+
+    res.json({
+      paymentLink: link
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      message: "Link error",
+      error: err.message
+    });
+  }
+}
+
+// ================= EXPORT ALL =================
+module.exports = {
+  getBalance,
+  connectWallet,
+  sendTransaction,
+  generatePaymentLink
+};
