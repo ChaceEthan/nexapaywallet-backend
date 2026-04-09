@@ -1,5 +1,4 @@
-// server.js
-require("dotenv").config();
+ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -14,32 +13,30 @@ const kvRoutes = require("./src/routes/kv");
 
 const app = express();
 
-// ✅ Security headers
+// ✅ Security
 app.use(helmet());
 
-// ✅ JSON middleware
+// ✅ Middleware
 app.use(express.json());
 
-// ✅ CORS (dynamic, localhost + Vercel)
+// ✅ CORS (dynamic, production + localhost)
 const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:5176",
-  process.env.FRONTEND_URL  // Example: https://nexapay-wallet-z45m.vercel.app
+  'http://localhost:5173',                  // Local dev
+  'http://localhost:5176',                  // Local dev
+  'https://nexapay-wallet-z45m.vercel.app' // Production Vercel
 ];
 
 app.use(cors({
-  origin: function(origin, callback) {
-    // allow Postman / curl requests (no origin)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
+  origin: (origin, callback) => {
+    // undefined origin is allowed for tools like Postman / server-to-server requests
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
     } else {
-      return callback(new Error("❌ Not allowed by CORS"));
+      console.warn("Blocked by CORS:", origin);
+      callback(new Error("Not allowed by CORS"));
     }
   },
-  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization"],
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   credentials: true
 }));
 
@@ -48,7 +45,7 @@ app.use("/api", authRoutes);
 app.use("/api", walletRoutes);
 app.use("/api", kvRoutes);
 
-// ✅ Health check (for Render or uptime monitors)
+// ✅ Health check (IMPORTANT for Render)
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
@@ -58,14 +55,13 @@ app.get("/", (req, res) => {
   res.send("🚀 NexaPay Backend Running");
 });
 
-// ✅ Start server AFTER DB is connected
+// ✅ Start server AFTER DB
 const PORT = process.env.PORT || 10000;
 
 connectDb()
   .then(() => {
     console.log("✅ MongoDB connected");
-
-    app.listen(PORT, "0.0.0.0", () => {
+      app.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
   })
@@ -74,5 +70,4 @@ connectDb()
     process.exit(1);
   });
 
-// ✅ Export for testing
 module.exports = app;
