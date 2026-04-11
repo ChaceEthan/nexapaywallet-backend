@@ -2,6 +2,7 @@
   "name": "nexapay-backend",
   "node": "18.x",
   "version2.0.0",
+  "private": true,
   "description": "NexaPay Backend - Wallet & Blockchain Payment System",
   "main": "server.js",
   "type": "commonjs",

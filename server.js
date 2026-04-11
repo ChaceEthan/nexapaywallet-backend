@@ -4,8 +4,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 
 const { connectDb } = require("./src/config/db");
-
-// routes
+ 
 const authRoutes = require("./src/routes/auth");
 const walletRoutes = require("./src/routes/wallet");
 const kvRoutes = require("./src/routes/kv");
@@ -16,26 +15,16 @@ const app = express();
 app.use(helmet());
 app.use(express.json());
 
-// ================= CORS FIX =================
+// ================= CORS =================
 const corsOptions = {
-  origin: (origin, callback) => {
-    // allow Postman / mobile apps
+   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
 
-    // allow localhost (all ports)
-    if (origin.includes("localhost")) {
-      return callback(null, true);
-    }
+    if (origin.includes("localhost")) return callback(null, true);
+    if (origin.includes("vercel.app")) return callback(null, true);
 
-    // allow Vercel frontend
-    if (origin.includes("vercel.app")) {
-      return callback(null, true);
-    }
-
-    console.log("❌ Blocked by CORS:", origin);
-    return callback(null, true); // ⚠️ keep open for now (dev-safe)
-  },
-
+    return callback(null, true);
+ },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
@@ -51,7 +40,7 @@ app.use("/api", kvRoutes);
 
 // ================= HEALTH =================
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "OK" });
+  res.json({ status: "OK" });
 });
 
 // ================= ROOT =================
@@ -59,7 +48,7 @@ app.get("/", (req, res) => {
   res.send("🚀 NexaPay Backend Running");
 });
 
-// ================= START SERVER =================
+// ================= START =================
 const PORT = process.env.PORT || 10000;
 
 connectDb()
@@ -72,7 +61,6 @@ connectDb()
   })
   .catch((err) => {
     console.error("❌ DB connection failed:", err);
-    process.exit(1);
-  });
+   });
 
-module.exports = app;
+module.exports = app; 
