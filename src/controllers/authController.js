@@ -21,7 +21,7 @@ exports.signup = async (req, res) => {
     await user.save();
 
     const token = jwt.sign(
-      { id: user._id },
+      { id: user._id, walletAddress: user.walletAddress },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
@@ -31,7 +31,8 @@ exports.signup = async (req, res) => {
       token,
       user: {
         id: user._id,
-        email: user.email
+        email: user.email,
+        walletAddress: user.walletAddress
       }
     });
 
@@ -52,7 +53,7 @@ exports.signin = async (req, res) => {
     if (!valid) return res.status(400).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
-      { id: user._id },
+      { id: user._id, walletAddress: user.walletAddress },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
@@ -62,7 +63,8 @@ exports.signin = async (req, res) => {
       token,
       user: {
         id: user._id,
-        email: user.email
+        email: user.email,
+        walletAddress: user.walletAddress
       }
     });
 
