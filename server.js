@@ -10,6 +10,7 @@ const walletRoutes = require("./src/routes/wallet");
 const kvRoutes = require("./src/routes/kv");
 const marketRoutes = require("./src/routes/market");
 const transactionRoutes = require("./src/routes/transaction");
+const qrRoutes = require("./src/routes/qr");
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use("/api", walletRoutes);
 app.use("/api", kvRoutes);
 app.use("/api", marketRoutes);
 app.use("/api", transactionRoutes);
+app.use("/api", qrRoutes);
 
 // ================= HEALTH =================
 app.get("/health", (req, res) => {
