@@ -8,6 +8,7 @@ const { connectDb } = require("./src/config/db");
 const authRoutes = require("./src/routes/auth");
 const walletRoutes = require("./src/routes/wallet");
 const kvRoutes = require("./src/routes/kv");
+const marketRoutes = require("./routes/market");
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.options("*", cors(corsOptions));
 app.use("/api", authRoutes);
 app.use("/api", walletRoutes);
 app.use("/api", kvRoutes);
+app.use("/api", marketRoutes);
 
 // ================= HEALTH =================
 app.get("/health", (req, res) => {
