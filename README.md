@@ -28,9 +28,14 @@ A Node.js/Express backend for the NexaPay wallet system, providing user authenti
 npm install
 
 # Copy environment template
+# macOS / Linux
 cp .env.example .env
 
+# Windows PowerShell
+copy .env.example .env
+
 # Edit .env with your configuration
+# Make sure MONGO_URI is set for your MongoDB instance
 nano .env
 ```
 

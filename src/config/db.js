@@ -1,12 +1,14 @@
 // db.js
 const mongoose = require("mongoose");
 
-const MONGO_URI = process.env.MONGO_URI;
+const MONGO_URI = process.env.MONGO_URI?.trim() || "mongodb://127.0.0.1:27017/nexapay";
 
 async function connectDb() {
   try {
-    if (!MONGO_URI) {
-      throw new Error("❌ MONGO_URI is not defined in .env");
+    if (!process.env.MONGO_URI) {
+      console.warn(
+        "⚠️ MONGO_URI is not defined in .env. Using fallback local MongoDB URL: mongodb://127.0.0.1:27017/nexapay"
+      );
     }
 
     await mongoose.connect(MONGO_URI);
