@@ -14,8 +14,7 @@ const WalletProfileSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
-      lowercase: true,
-      index: true
+      lowercase: true
     },
 
     // User's display name for this wallet
@@ -53,7 +52,8 @@ const WalletProfileSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      sparse: true
+      sparse: true,
+      index: true
     },
 
     // Verification flag
@@ -72,9 +72,5 @@ const WalletProfileSchema = new mongoose.Schema(
     timestamps: true // adds createdAt & updatedAt
   }
 );
-
-// Index for fast lookups
-WalletProfileSchema.index({ address: 1 });
-WalletProfileSchema.index({ userId: 1 });
 
 module.exports = mongoose.model("WalletProfile", WalletProfileSchema);

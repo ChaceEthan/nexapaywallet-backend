@@ -105,9 +105,6 @@ const TransactionSchema = new mongoose.Schema(
 );
 
 // Indexes for fast queries
-TransactionSchema.index({ from: 1, createdAt: -1 });
-TransactionSchema.index({ to: 1, createdAt: -1 });
-TransactionSchema.index({ txHash: 1 });
 TransactionSchema.index({ status: 1 });
 
 module.exports = mongoose.model("Transaction", TransactionSchema);
