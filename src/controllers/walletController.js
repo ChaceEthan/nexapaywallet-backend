@@ -1,121 +1,79 @@
-<<<<<<< HEAD
+const { asyncHandler } = require("../utils/asyncHandler");
+const { ApiError } = require("../utils/apiError");
+const { ApiResponse } = require("../utils/apiResponse");
 const User = require("../models/User");
+const Wallet = require("../models/Wallet");
 const axios = require("axios");
 
 // ================= GET BALANCE =================
-async function getBalance(req, res) {
+const getBalance = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const user = await User.findById(userId);
+
+  if (!user || !user.walletAddress) {
+    throw new ApiError(400, "No wallet connected");
+  }
+
   try {
-    const userId = req.user.id;
-
-    const user = await User.findById(userId);
-
-    if (!user || !user.walletAddress) {
-      return res.status(400).json({ message: "No wallet connected" });
-    }
-
     const response = await axios.get(
       `https://horizon-testnet.stellar.org/accounts/${user.walletAddress}`
     );
 
-    const balance = response.data.balances.find(
-      b => b.asset_type === "native"
+    const balance = response.data.balances.find(b => b.asset_type === "native");
+
+    return res.status(200).json(
+      new ApiResponse(200, {
+        balance: balance ? balance.balance : "0",
+        account: user.walletAddress
+      }, "Balance retrieved successfully")
     );
-
-    res.json({
-      balance: balance ? balance.balance : "0",
-      account: user.walletAddress
-    });
-
   } catch (err) {
-    res.status(500).json({
-      message: "Balance error",
-      error: err.message
-    });
+    throw new ApiError(500, `Horizon API Error: ${err.message}`);
   }
-}
+});
 
 // ================= CONNECT WALLET =================
-async function connectWallet(req, res) {
-  try {
-    const userId = req.user.id;
-    const { walletAddress } = req.body;
+const connectWallet = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const { walletAddress } = req.body;
 
-    if (!walletAddress) {
-      return res.status(400).json({ message: "Wallet address required" });
-    }
-
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { walletAddress },
-      { new: true }
-    );
-
-    res.json({
-      message: "Wallet connected",
-      walletAddress: user.walletAddress
-    });
-
-  } catch (err) {
-    res.status(500).json({
-      message: "Connect error",
-      error: err.message
-    });
+  if (!walletAddress) {
+    throw new ApiError(400, "Wallet address required");
   }
-}
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { walletAddress },
+    { new: true }
+  );
+
+  return res.status(200).json(
+    new ApiResponse(200, { walletAddress: user.walletAddress }, "Wallet connected successfully")
+  );
+});
 
 // ================= SEND TRANSACTION =================
-async function sendTransaction(req, res) {
-  try {
-    const { toPublicKey, amount } = req.body;
+const sendTransaction = asyncHandler(async (req, res) => {
+  const { toPublicKey, amount } = req.body;
 
-    if (!toPublicKey || !amount) {
-      return res.status(400).json({ message: "Missing fields" });
-    }
-
-    res.json({
-      message: "Transaction prepared",
-      toPublicKey,
-      amount
-    });
-
-  } catch (err) {
-    res.status(500).json({
-      message: "Transaction error",
-      error: err.message
-    });
+  if (!toPublicKey || !amount) {
+    throw new ApiError(400, "Missing required fields: toPublicKey, amount");
   }
-}
+
+  return res.status(200).json(
+    new ApiResponse(200, { toPublicKey, amount }, "Transaction prepared")
+  );
+});
 
 // ================= PAYMENT LINK =================
-async function generatePaymentLink(req, res) {
-  try {
-    const { destination, amount } = req.body;
+const generatePaymentLink = asyncHandler(async (req, res) => {
+  const { destination, amount } = req.body;
+  const link = `web+stellar:pay?destination=${destination}&amount=${amount}&asset_code=XLM`;
 
-    const link = `web+stellar:pay?destination=${destination}&amount=${amount}&asset_code=XLM`;
-
-    res.json({
-      paymentLink: link
-    });
-
-  } catch (err) {
-    res.status(500).json({
-      message: "Link error",
-      error: err.message
-    });
-  }
-}
-
-// ================= EXPORT ALL =================
-module.exports = {
-  getBalance,
-  connectWallet,
-  sendTransaction,
-  generatePaymentLink
-=======
-const { asyncHandler } = require("../utils/asyncHandler");
-const { ApiError } = require("../utils/apiError");
-const { ApiResponse } = require("../utils/apiResponse");
-const Wallet = require("../models/Wallet");
+  return res.status(200).json(
+    new ApiResponse(200, { paymentLink: link }, "Payment link generated successfully")
+  );
+});
 
 /**
  * @description Create a new wallet
@@ -197,10 +155,14 @@ const updateActive = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, wallet, "Wallet activity updated"));
 });
 
+// ================= EXPORT ALL =================
 module.exports = {
+  getBalance,
+  connectWallet,
+  sendTransaction,
+  generatePaymentLink,
   createWallet,
   getAllWallets,
   deleteWallet,
   updateActive,
->>>>>>> 81195e5 (Fix backend: Binance service + MongoDB + market cleanup)
-};
+}; 
