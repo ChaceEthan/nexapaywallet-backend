@@ -1,7 +1,5 @@
-<<<<<<< HEAD
-
-const express = require("express");
-const router = express.Router();
+const express = require("express"); 
+const router = express.Router(); 
 
 const {
   connectWallet,
@@ -74,22 +72,4 @@ router.post("/wallet/verify-phrase", verifyToken, async (req, res) => {
   }
 });
 
-module.exports = router; 
-=======
-const express = require("express");
-const router = express.Router();
-const {
-  createWallet,
-  getAllWallets,
-  deleteWallet,
-  updateActive,
-} = require("../controllers/walletController");
-
-// ================= WALLET TRACKING ROUTES =================
-router.post("/create", createWallet);
-router.get("/all", getAllWallets);
-router.patch("/active", updateActive);
-router.delete("/:id", deleteWallet);
-
-module.exports = router;
->>>>>>> 81195e5 (Fix backend: Binance service + MongoDB + market cleanup)
+module.exports = router;  
