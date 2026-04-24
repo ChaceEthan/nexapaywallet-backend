@@ -1,13 +1,17 @@
+<<<<<<< HEAD
 /**
  * Transaction Model
  * Records all financial transactions (sends/receives)
  * Includes identity resolution and fee tracking
  */
 
+=======
+>>>>>>> 81195e5 (Fix backend: Binance service + MongoDB + market cleanup)
 const mongoose = require("mongoose");
 
 const TransactionSchema = new mongoose.Schema(
   {
+<<<<<<< HEAD
     // Sender wallet address
     from: {
       type: String,
@@ -107,4 +111,47 @@ const TransactionSchema = new mongoose.Schema(
 // Indexes for fast queries
 TransactionSchema.index({ status: 1 });
 
+=======
+    walletId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Wallet",
+      required: true,
+    },
+    type: {
+      type: String,
+      enum: ["send", "receive", "swap"],
+      required: true,
+    },
+    asset: {
+      type: String,
+      required: true,
+      // For swap, this could be the source asset
+    },
+    targetAsset: {
+      type: String,
+      // Only for swap
+    },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    targetAmount: {
+      type: Number,
+      // Only for swap
+      min: 0,
+    },
+    fee: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+>>>>>>> 81195e5 (Fix backend: Binance service + MongoDB + market cleanup)
 module.exports = mongoose.model("Transaction", TransactionSchema);

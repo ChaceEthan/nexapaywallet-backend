@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /**
  * Transaction Routes
  * Core API endpoints for money system
@@ -326,5 +327,19 @@ router.delete("/wallet-profile/:address", verifyToken, async (req, res) => {
     });
   }
 });
+=======
+const express = require("express");
+const router = express.Router();
+const {
+  sendTransaction,
+  swapTransaction,
+  getTransactions,
+} = require("../controllers/transactionController");
+
+// ================= TRANSACTION ROUTES =================
+router.post("/send", sendTransaction);
+router.post("/swap", swapTransaction);
+router.get("/:walletId", getTransactions);
+>>>>>>> 81195e5 (Fix backend: Binance service + MongoDB + market cleanup)
 
 module.exports = router;

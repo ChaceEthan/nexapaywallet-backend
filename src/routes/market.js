@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /**
  * Market Routes
  * Cryptocurrency market data and price endpoints
@@ -132,5 +133,13 @@ router.get("/market/price/:symbol", async (req, res) => {
     });
   }
 });
+=======
+const express = require("express");
+const router = express.Router();
+const { getMarketPrices } = require("../controllers/marketController");
+
+// ================= MARKET ROUTES =================
+router.get("/prices", getMarketPrices);
+>>>>>>> 81195e5 (Fix backend: Binance service + MongoDB + market cleanup)
 
 module.exports = router;

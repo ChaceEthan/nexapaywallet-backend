@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -70,3 +71,57 @@ connectDb()
    });
 
 module.exports = app; 
+=======
+// 1. ENV LOAD: Must be at the very top
+require("dotenv").config();
+
+const { app } = require("./src/app");
+const { connectDb } = require("./src/config/db");
+
+// 2. ENV VALIDATION: Stop immediately if critical config is missing
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI is missing in .env file");
+  process.exit(1);
+}
+
+const PORT = process.env.PORT || 10000;
+
+// 3. GLOBAL ERROR HANDLERS: Prevent process crashes from async errors
+process.on('uncaughtException', (err) => {
+  console.error('🔥 Critical Uncaught Exception:', err);
+  // Keep running for stability, but log the event
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+/**
+ * @description Start the server and connect to the database
+ */
+const startServer = async () => {
+  console.log("MONGO_URI:", process.env.MONGO_URI ? "Loaded" : "Missing");
+  
+  // 4. DATABASE INITIALIZATION: Attempt connection but don't block server startup on failure
+  const isConnected = await connectDb();
+  
+  if (!isConnected) {
+    console.warn("⚠️ Database not connected. Running in degraded mode.");
+  }
+
+  // 5. START EXPRESS: Always start the process
+  app.listen(PORT, "0.0.0.0", () => {
+    const statusEmoji = isConnected ? "✅" : "⚠️";
+    const dbStatus = isConnected ? "Connected" : "Disconnected (Degraded Mode)";
+
+    console.log(`
+🚀 NexaPay Backend Started
+📡 Server running on: http://localhost:${PORT}
+📁 Environment: ${process.env.NODE_ENV || 'development'}
+${statusEmoji} MongoDB Status: ${dbStatus}
+    `);
+  });
+};
+
+startServer();
+>>>>>>> 81195e5 (Fix backend: Binance service + MongoDB + market cleanup)
