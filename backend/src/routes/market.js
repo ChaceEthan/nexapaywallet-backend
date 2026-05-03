@@ -8,14 +8,41 @@ const {
   getSymbolPrice
 } = require("../services/marketService");
 
+function sendMarket(res, market) {
+  const data = Array.isArray(market?.data) ? market.data : [];
+  return res.json({
+    success: true,
+    count: data.length,
+    data,
+    source: market?.source || "static-fallback",
+    fallbackFrom: market?.fallbackFrom || null,
+    cached: Boolean(market?.cached),
+    stale: Boolean(market?.stale),
+    timestamp: market?.timestamp || new Date().toISOString()
+  });
+}
+
+router.get("/market", async (req, res) => {
+  try {
+    return sendMarket(res, await getMarketPrices());
+  } catch (error) {
+    return sendMarket(res, null);
+  }
+});
+
 router.get("/market/xlm", async (req, res) => {
   try {
     const priceData = await getXLMPrice();
     return res.json(priceData);
   } catch (error) {
-    return res.status(503).json({
-      success: false,
-      error: "Market data unavailable"
+    return res.json({
+      success: true,
+      symbol: "XLMUSDT",
+      price: "0.10",
+      change24h: 0,
+      source: "static-fallback",
+      stale: true,
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -24,21 +51,9 @@ router.get("/market/prices", async (req, res) => {
   try {
     const market = await getMarketPrices();
 
-    return res.json({
-      success: true,
-      count: market.data.length,
-      data: market.data,
-      source: market.source,
-      fallbackFrom: market.fallbackFrom,
-      cached: market.cached,
-      stale: market.stale,
-      timestamp: market.timestamp
-    });
+    return sendMarket(res, market);
   } catch (error) {
-    return res.status(503).json({
-      success: false,
-      error: "Market data unavailable"
-    });
+    return sendMarket(res, null);
   }
 });
 
@@ -52,9 +67,13 @@ router.get("/market/stats", async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    return res.status(503).json({
-      success: false,
-      error: "Market data unavailable"
+    return res.json({
+      success: true,
+      count: 0,
+      data: [],
+      source: "static-fallback",
+      stale: true,
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -86,7 +105,7 @@ router.get("/market/price/:symbol", async (req, res) => {
       });
     }
 
-    return res.status(503).json({
+    return res.status(200).json({
       success: false,
       error: "Market data unavailable"
     });

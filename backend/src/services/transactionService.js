@@ -11,8 +11,13 @@ const {
   isValidStellarSecret
 } = require("../utils/network");
 
-const REQUEST_TIMEOUT = 8000;
+const REQUEST_TIMEOUT = Math.max(Number(process.env.HORIZON_TIMEOUT_MS || 8000), 1000);
+const HORIZON_RETRY_COUNT = Math.max(Number(process.env.HORIZON_RETRY_COUNT || 1), 0);
 const IDEMPOTENCY_WINDOW_MS = 30 * 1000;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function normalizeAmount(amount) {
   const amountString = String(amount ?? "").trim();
@@ -76,23 +81,33 @@ async function getAccountDetails(publicKey) {
     throw new Error("Invalid Stellar address");
   }
 
-  try {
-    const horizonUrl = getHorizonUrl();
-    const response = await axios.get(`${horizonUrl}/accounts/${publicKey}`, {
-      timeout: REQUEST_TIMEOUT
-    });
-    return response.data;
-  } catch (error) {
-    if (error.response?.status === 404) {
-      throw new Error("Account not found on network. Please fund account first.");
+  const horizonUrl = getHorizonUrl();
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= HORIZON_RETRY_COUNT; attempt += 1) {
+    try {
+      const response = await axios.get(`${horizonUrl}/accounts/${publicKey}`, {
+        timeout: REQUEST_TIMEOUT
+      });
+      return response.data;
+    } catch (error) {
+      lastError = error;
+      if (error.response?.status === 404) {
+        throw new Error("Account not found on network. Please fund account first.");
+      }
+      if (attempt < HORIZON_RETRY_COUNT) {
+        await sleep(300 * (attempt + 1));
+      }
     }
-    throw new Error(`Failed to fetch account: ${error.message}`);
   }
+
+  throw new Error(`Failed to fetch account: ${lastError?.message || "Horizon unavailable"}`);
 }
 
 async function getBalance(publicKey) {
   const account = await getAccountDetails(publicKey);
-  const nativeBalance = account.balances.find(balance => balance.asset_type === "native");
+  const balances = Array.isArray(account?.balances) ? account.balances : [];
+  const nativeBalance = balances.find(balance => balance?.asset_type === "native");
   return nativeBalance ? nativeBalance.balance : "0";
 }
 

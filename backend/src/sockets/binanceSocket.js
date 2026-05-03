@@ -3,6 +3,7 @@ const WebSocket = require("ws");
 
 const BINANCE_WS_URL = process.env.BINANCE_WS_URL || "wss://stream.binance.com:9443/ws";
 const RECONNECT_MS = Math.max(Number(process.env.BINANCE_WS_RECONNECT_MS || 5000), 1000);
+const HEARTBEAT_MS = Math.max(Number(process.env.BINANCE_WS_HEARTBEAT_MS || 30000), 5000);
 const STREAMS = ["xlmusdt@ticker", "btcusdt@ticker", "ethusdt@ticker"];
 
 function normalizeTicker(payload) {
@@ -25,6 +26,9 @@ function createCorsOrigin(allowedOrigins = []) {
 
 function initializeBinanceSocket(server, options = {}) {
   const io = new Server(server, {
+    path: "/ws/market",
+    pingInterval: HEARTBEAT_MS,
+    pingTimeout: Math.max(Math.floor(HEARTBEAT_MS / 2), 5000),
     cors: {
       origin: createCorsOrigin(options.allowedOrigins),
       methods: ["GET", "POST"],
@@ -34,9 +38,18 @@ function initializeBinanceSocket(server, options = {}) {
 
   let socket = null;
   let reconnectTimer = null;
+  let heartbeatTimer = null;
+  let shuttingDown = false;
+
+  function clearHeartbeat() {
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
 
   function scheduleReconnect() {
+    if (shuttingDown) return;
     if (reconnectTimer) return;
+    clearHeartbeat();
 
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
@@ -49,7 +62,13 @@ function initializeBinanceSocket(server, options = {}) {
   }
 
   function connect() {
+    if (shuttingDown) return;
+
     try {
+      if (socket && socket.readyState !== WebSocket.CLOSED) {
+        socket.terminate();
+      }
+
       socket = new WebSocket(BINANCE_WS_URL);
 
       socket.on("open", () => {
@@ -59,6 +78,24 @@ function initializeBinanceSocket(server, options = {}) {
           params: STREAMS,
           id: Date.now()
         }));
+
+        clearHeartbeat();
+        heartbeatTimer = setInterval(() => {
+          if (!socket || socket.readyState !== WebSocket.OPEN) {
+            scheduleReconnect();
+            return;
+          }
+
+          try {
+            socket.ping();
+          } catch {
+            scheduleReconnect();
+          }
+        }, HEARTBEAT_MS);
+
+        if (typeof heartbeatTimer.unref === "function") {
+          heartbeatTimer.unref();
+        }
       });
 
       socket.on("message", (message) => {
@@ -74,9 +111,7 @@ function initializeBinanceSocket(server, options = {}) {
       });
 
       socket.on("error", () => {
-        if (socket?.readyState === WebSocket.OPEN) {
-          socket.close();
-        }
+        if (socket?.readyState === WebSocket.OPEN) socket.close();
       });
 
       socket.on("close", scheduleReconnect);
@@ -90,7 +125,9 @@ function initializeBinanceSocket(server, options = {}) {
   return {
     io,
     close: () => {
+      shuttingDown = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      clearHeartbeat();
       if (socket) socket.close();
       io.close();
     }

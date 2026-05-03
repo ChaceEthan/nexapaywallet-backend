@@ -9,6 +9,11 @@ function getRequestIdempotencyKey(req) {
   return req.get("Idempotency-Key") || req.body.idempotencyKey || null;
 }
 
+function safeNumberString(value, fallback = "0") {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(7).replace(/\.?0+$/, "") : fallback;
+}
+
 router.post("/transaction", verifyToken, requireUnlockedWallet, async (req, res) => {
   try {
     const { toAddress, amount, memo } = req.body;
@@ -50,16 +55,16 @@ router.post("/transaction", verifyToken, requireUnlockedWallet, async (req, res)
       return res.status(result.idempotentReplay ? 200 : 400).json({
         success: false,
         message: result.idempotentReplay ? "Transaction already exists" : "Transaction submission failed",
-        error: result.submitDetails.error,
-        transaction: result.transaction
+        error: result.submitDetails?.error || "Transaction submission failed",
+        transaction: result.transaction || null
       });
     }
 
     return res.status(200).json({
       success: true,
       message: result.idempotentReplay ? "Transaction already processed" : "Transaction sent successfully",
-      transaction: result.transaction,
-      txHash: result.transaction.txHash
+      transaction: result.transaction || null,
+      txHash: result.transaction?.txHash || null
     });
   } catch (error) {
     return res.status(400).json({
@@ -89,21 +94,30 @@ router.get("/transactions/:address", async (req, res) => {
       skip
     );
 
-    const result = transactions.map(tx => ({
-      txHash: tx.txHash,
-      type: tx.from === normalizedAddress ? "sent" : "received",
-      senderAddress: tx.from,
-      senderName: tx.fromName,
-      receiverAddress: tx.to,
-      receiverName: tx.toName,
-      amount: tx.amount,
-      fee: tx.fee,
-      totalDeduction: tx.metadata?.totalDeduction ||
-        (tx.type === "sent" ? (parseFloat(tx.amount) + parseFloat(tx.fee)).toFixed(7) : tx.amount),
-      status: tx.status,
-      timestamp: tx.createdAt,
-      memo: tx.metadata?.memo || null
-    }));
+    const safeTransactions = Array.isArray(transactions) ? transactions : [];
+    const result = safeTransactions.filter(Boolean).map(tx => {
+      const from = String(tx.from || "").toUpperCase();
+      const to = String(tx.to || "").toUpperCase();
+      const amount = safeNumberString(tx.amount, "0");
+      const fee = safeNumberString(tx.fee, "0");
+      const type = from === normalizedAddress ? "sent" : "received";
+
+      return {
+        txHash: tx.txHash || null,
+        type,
+        senderAddress: from,
+        senderName: tx.fromName || "Unknown",
+        receiverAddress: to,
+        receiverName: tx.toName || "Unknown",
+        amount,
+        fee,
+        totalDeduction: tx.metadata?.totalDeduction ||
+          (type === "sent" ? safeNumberString(Number(amount) + Number(fee), amount) : amount),
+        status: tx.status || "pending",
+        timestamp: tx.createdAt || tx.updatedAt || null,
+        memo: tx.metadata?.memo || null
+      };
+    });
 
     return res.status(200).json({
       success: true,

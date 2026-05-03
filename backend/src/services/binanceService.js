@@ -1,6 +1,7 @@
 const axios = require("axios");
 
 const BINANCE_API_URL = process.env.BINANCE_API_URL || "https://api.binance.com/api/v3";
+const BINANCE_API_KEY = process.env.BINANCE_API_KEY?.trim();
 const REQUEST_TIMEOUT_MS = Number(process.env.BINANCE_REQUEST_TIMEOUT_MS || 8000);
 const RETRY_COUNT = Math.max(Number(process.env.BINANCE_RETRY_COUNT || 2), 0);
 const RETRY_DELAY_MS = Math.max(Number(process.env.BINANCE_RETRY_DELAY_MS || 250), 0);
@@ -53,10 +54,15 @@ async function requestWithRetry(path, params = {}) {
 
   for (let attempt = 0; attempt <= RETRY_COUNT; attempt += 1) {
     try {
+      const headers = { accept: "application/json" };
+      if (BINANCE_API_KEY) {
+        headers["X-MBX-APIKEY"] = BINANCE_API_KEY;
+      }
+
       const response = await axios.get(`${BINANCE_API_URL}${path}`, {
         params,
         timeout: REQUEST_TIMEOUT_MS,
-        headers: { accept: "application/json" }
+        headers
       });
       return response.data;
     } catch (error) {

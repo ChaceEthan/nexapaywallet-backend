@@ -36,10 +36,11 @@ function writeCache(value) {
 }
 
 function marketResponse(data, source, extra = {}) {
+  const safeData = Array.isArray(data) ? data : [];
   return {
     success: true,
-    count: data.length,
-    data,
+    count: safeData.length,
+    data: safeData,
     source,
     timestamp: nowIso(),
     ...extra
@@ -83,7 +84,8 @@ async function get24hStats() {
 async function getSymbolPrice(symbol) {
   const normalizedSymbol = String(symbol || "").trim().toUpperCase();
   const market = await getMarketPrices();
-  const ticker = market.data.find(item => item.symbol === normalizedSymbol);
+  const ticker = (Array.isArray(market.data) ? market.data : [])
+    .find(item => item?.symbol === normalizedSymbol);
 
   if (!ticker) {
     throw new Error("Invalid trading pair symbol");
