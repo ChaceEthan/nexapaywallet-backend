@@ -44,7 +44,7 @@ function parseJsonPayload(payload) {
       address: parsed.address || parsed.destination || parsed.to || parsed.publicKey || null,
       amount: parsed.amount ?? parsed.value ?? null
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -60,7 +60,7 @@ function parseUrlPayload(payload) {
         findAddress(url.pathname),
       amount: getAmountFromSearch(url.searchParams)
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }

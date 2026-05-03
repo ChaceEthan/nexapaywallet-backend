@@ -68,7 +68,7 @@ function initializeBinanceSocket(server, options = {}) {
           if (ticker) {
             io.emit("market:update", ticker);
           }
-        } catch (error) {
+        } catch {
           // Ignore malformed upstream frames.
         }
       });
@@ -80,7 +80,7 @@ function initializeBinanceSocket(server, options = {}) {
       });
 
       socket.on("close", scheduleReconnect);
-    } catch (error) {
+    } catch {
       scheduleReconnect();
     }
   }
