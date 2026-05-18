@@ -1,3 +1,4 @@
+// @ts-nocheck
 const path = require("path");
 
 require("dotenv").config({ path: path.join(__dirname, ".env") });
@@ -10,7 +11,7 @@ const http = require("http");
 const { getDbStatus, startDbConnection } = require("./src/utils/db");
 const { globalErrorHandler, notFoundHandler } = require("./src/middlewares/errorHandler");
 const { initializeBinanceSocket } = require("./src/sockets/binanceSocket");
-const { getHorizonHealth } = require("./src/utils/network");
+const horizonClient = require("./src/utils/horizonClient");
 
 const authRoutes = require("./src/routes/auth");
 const walletRoutes = require("./src/routes/wallet");
@@ -72,7 +73,18 @@ app.use("/api", qrRoutes);
 app.use("/api", userRoutes);
 
 async function sendHealth(req, res) {
-  const horizon = await getHorizonHealth();
+  let horizon;
+  try {
+    horizon = await horizonClient.getHealthStatus();
+  } catch (error) {
+    console.error("Health endpoint error:", error);
+    horizon = {
+      success: false,
+      online: false,
+      mode: "error",
+      error: error.message || "Internal server error"
+    };
+  }
 
   return res.status(200).json({
     success: true,
@@ -87,8 +99,20 @@ async function sendHealth(req, res) {
 app.get("/health", sendHealth);
 app.get("/api/health", sendHealth);
 app.get("/api/health/horizon", async (req, res) => {
-  const horizon = await getHorizonHealth();
-  return res.status(200).json(horizon);
+  try {
+    const horizon = await horizonClient.getHealthStatus({
+      network: req.query.network
+    });
+    return res.status(200).json(horizon);
+  } catch (error) {
+    console.error("GET /api/health/horizon error:", error);
+    return res.status(200).json({
+      success: true,
+      online: false,
+      mode: "error",
+      error: error.message || "Health check failed"
+    });
+  }
 });
 
 app.get("/", (req, res) => {

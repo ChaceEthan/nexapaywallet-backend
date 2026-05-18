@@ -5,6 +5,7 @@ const transactionService = require("../services/transactionService");
 const { getAccountDetails, getBalance: getNetworkBalance } = require("../services/transactionService");
 const { isValidStellarAddress } = require("../utils/network");
 const { createToken, serializeUser } = require("../utils/authToken");
+const { normalizeAndValidatePhrase } = require("../utils/mnemonicValidator");
 
 const DEFAULT_UNLOCK_TTL_MS = 15 * 60 * 1000;
 
@@ -170,9 +171,15 @@ async function verifyPhrase(req, res) {
       });
     }
 
-    const normalizedPhrase = Array.isArray(phrase)
-      ? phrase.join(" ").trim()
-      : String(phrase || "").trim();
+    let normalizedPhrase;
+    try {
+      normalizedPhrase = normalizeAndValidatePhrase(phrase);
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid recovery phrase"
+      });
+    }
 
     const valid = normalizedPhrase && await bcrypt.compare(normalizedPhrase, configuredPhraseHash);
     if (!valid) {

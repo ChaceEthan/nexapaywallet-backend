@@ -7,6 +7,13 @@
 const WalletProfile = require("../models/WalletProfile");
 const { isValidStellarAddress } = require("../utils/network");
 
+function isDatabaseUnavailable(error) {
+  return [
+    "MongoServerSelectionError",
+    "MongooseServerSelectionError"
+  ].includes(error?.name) || /buffering timed out|not connected|topology|initial connection/i.test(error?.message || "");
+}
+
 /**
  * Create or update a wallet profile
  * 
@@ -52,11 +59,17 @@ async function getProfileByAddress(address) {
 
   const normalizedAddress = address.trim().toUpperCase();
 
-  const profile = await WalletProfile.findOne({
-    address: normalizedAddress
-  });
-
-  return profile;
+  try {
+    return await WalletProfile.findOne({
+      address: normalizedAddress
+    });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("Wallet profile lookup degraded:", error.message);
+      return null;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -85,9 +98,15 @@ async function resolveNames(addresses) {
 
   const validAddresses = addresses.filter(isValidStellarAddress).map(a => a.toUpperCase());
   
-  const profiles = await WalletProfile.find({
-    address: { $in: validAddresses }
-  });
+  let profiles = [];
+  try {
+    profiles = await WalletProfile.find({
+      address: { $in: validAddresses }
+    });
+  } catch (error) {
+    if (!isDatabaseUnavailable(error)) throw error;
+    console.warn("Wallet profile batch lookup degraded:", error.message);
+  }
 
   const nameMap = {};
   

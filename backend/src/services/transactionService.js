@@ -1,4 +1,3 @@
-const axios = require("axios");
 const crypto = require("crypto");
 const StellarSDK = require("@stellar/stellar-sdk");
 const Transaction = require("../models/Transaction");
@@ -10,14 +9,9 @@ const {
   isValidStellarAddress,
   isValidStellarSecret
 } = require("../utils/network");
+const horizonClient = require("../utils/horizonClient");
 
-const REQUEST_TIMEOUT = Math.max(Number(process.env.HORIZON_TIMEOUT_MS || 8000), 1000);
-const HORIZON_RETRY_COUNT = Math.max(Number(process.env.HORIZON_RETRY_COUNT || 1), 0);
 const IDEMPOTENCY_WINDOW_MS = 30 * 1000;
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 function normalizeAmount(amount) {
   const amountString = String(amount ?? "").trim();
@@ -81,27 +75,15 @@ async function getAccountDetails(publicKey) {
     throw new Error("Invalid Stellar address");
   }
 
-  const horizonUrl = getHorizonUrl();
-  let lastError = null;
-
-  for (let attempt = 0; attempt <= HORIZON_RETRY_COUNT; attempt += 1) {
-    try {
-      const response = await axios.get(`${horizonUrl}/accounts/${publicKey}`, {
-        timeout: REQUEST_TIMEOUT
-      });
-      return response.data;
-    } catch (error) {
-      lastError = error;
-      if (error.response?.status === 404) {
-        throw new Error("Account not found on network. Please fund account first.");
-      }
-      if (attempt < HORIZON_RETRY_COUNT) {
-        await sleep(300 * (attempt + 1));
-      }
+  try {
+    const account = await horizonClient.getAccountDetails(publicKey);
+    if (!account) {
+      throw new Error("Account not found on network. Please fund account first.");
     }
+    return account;
+  } catch (error) {
+    throw new Error(`Failed to fetch account: ${error.message}`);
   }
-
-  throw new Error(`Failed to fetch account: ${lastError?.message || "Horizon unavailable"}`);
 }
 
 async function getBalance(publicKey) {
@@ -372,6 +354,8 @@ async function getTransactionByHash(txHash) {
 
 async function getTransactionHistory(address, limit = 50, skip = 0) {
   const normalizedAddress = String(address || "").trim().toUpperCase();
+  const requestedLimit = Number(limit);
+  const requestedSkip = Number(skip);
 
   if (!isValidStellarAddress(normalizedAddress)) {
     throw new Error("Invalid address");
@@ -384,8 +368,29 @@ async function getTransactionHistory(address, limit = 50, skip = 0) {
     ]
   })
     .sort({ createdAt: -1 })
-    .limit(Math.min(Number(limit) || 50, 100))
-    .skip(Math.max(Number(skip) || 0, 0));
+    .limit(Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 50, 1), 100))
+    .skip(Math.max(Number.isFinite(requestedSkip) ? requestedSkip : 0, 0));
+}
+
+async function getHorizonPaymentHistory(address, limit = 50) {
+  const normalizedAddress = String(address || "").trim().toUpperCase();
+
+  if (!isValidStellarAddress(normalizedAddress)) {
+    throw new Error("Invalid address");
+  }
+
+  const requestedLimit = Number(limit);
+  const safeLimit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 50, 1), 100);
+
+  try {
+    const records = await horizonClient.getTransactionHistory(normalizedAddress, {
+      limit: safeLimit
+    });
+    return records;
+  } catch (error) {
+    console.error("Horizon payment history error:", error.message);
+    return [];
+  }
 }
 
 module.exports = {
@@ -398,5 +403,6 @@ module.exports = {
   submitTransaction,
   executeTransaction,
   getTransactionByHash,
-  getTransactionHistory
+  getTransactionHistory,
+  getHorizonPaymentHistory
 };

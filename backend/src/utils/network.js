@@ -56,7 +56,22 @@ function sleep(ms) {
 }
 
 async function getHorizonHealth(options = {}) {
-  const horizonUrl = getHorizonUrl();
+  let network = null;
+  let horizonUrl = null;
+  try {
+    network = getNetwork();
+    horizonUrl = getHorizonUrl();
+  } catch (error) {
+    console.error("Horizon health config error:", error);
+    return {
+      success: false,
+      status: "offline",
+      network: (process.env.STELLAR_NETWORK || "testnet").toLowerCase(),
+      error: error.message || "Internal server error",
+      timestamp: new Date().toISOString()
+    };
+  }
+
   const timeout = Math.max(Number(process.env.HORIZON_TIMEOUT_MS || options.timeout || 5000), 1000);
   const retries = Math.max(Number(process.env.HORIZON_RETRY_COUNT || options.retries || 1), 0);
   let lastError = null;
@@ -71,7 +86,7 @@ async function getHorizonHealth(options = {}) {
       return {
         success: response.status < 400,
         status: response.status < 400 ? "online" : "degraded",
-        network: getNetwork().name,
+        network: (process.env.STELLAR_NETWORK || "testnet").toLowerCase(),
         horizonUrl,
         latestLedger: response.data?.history_latest_ledger || null,
         fallback: false,
@@ -79,6 +94,7 @@ async function getHorizonHealth(options = {}) {
       };
     } catch (error) {
       lastError = error;
+      console.error("Horizon health ping error:", error.message || error);
       if (attempt < retries) {
         await sleep(250 * (attempt + 1));
       }
@@ -88,7 +104,7 @@ async function getHorizonHealth(options = {}) {
   return {
     success: false,
     status: "offline",
-    network: getNetwork().name,
+    network: (process.env.STELLAR_NETWORK || network?.name || "testnet").toLowerCase(),
     horizonUrl,
     latestLedger: null,
     fallback: true,

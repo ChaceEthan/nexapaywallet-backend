@@ -2,8 +2,14 @@ const binanceService = require("./binanceService");
 
 const CACHE_TTL_MS = Number(process.env.MARKET_CACHE_TTL_MS || 10000);
 const STALE_TTL_MS = Number(process.env.MARKET_STALE_TTL_MS || 5 * 60 * 1000);
+const FALLBACK_XLM_PRICE = 0.1650;
 
 let cachedMarket = null;
+let cachedXlm = {
+  price: FALLBACK_XLM_PRICE,
+  source: "cached",
+  updatedAt: Date.now()
+};
 
 function nowIso() {
   return new Date().toISOString();
@@ -33,6 +39,21 @@ function writeCache(value) {
     value,
     updatedAt: Date.now()
   };
+
+  const xlmTicker = Array.isArray(value?.data)
+    ? value.data.find(item => item?.symbol === "XLMUSDT")
+    : null;
+
+  if (xlmTicker?.price !== undefined) {
+    const price = Number(xlmTicker.price);
+    if (Number.isFinite(price)) {
+      cachedXlm = {
+        price,
+        source: value.source || "cached",
+        updatedAt: Date.now()
+      };
+    }
+  }
 }
 
 function marketResponse(data, source, extra = {}) {
@@ -48,21 +69,35 @@ function marketResponse(data, source, extra = {}) {
 }
 
 async function getMarketPrices() {
+  const cached = readCache();
+  if (cached && !cached.stale) return cached;
+
   try {
     const data = await binanceService.getPrices({ allowFallback: false });
     const response = marketResponse(data, "binance", { cached: false, stale: false });
     writeCache(response);
     return response;
   } catch (error) {
-    const cached = readCache();
-    if (cached) return cached;
+    console.error("Market API error:", error.message || error);
+    const staleCached = readCache();
+    if (staleCached) return staleCached;
 
-    const data = await binanceService.getPrices({ fallbackOnly: true });
-    return marketResponse(data, "static-fallback", {
-      fallbackFrom: "binance",
-      cached: false,
-      stale: true
-    });
+    try {
+      const data = await binanceService.getPrices({ fallbackOnly: true });
+      return marketResponse(data, "cached", {
+        fallbackFrom: "binance",
+        cached: true,
+        stale: true
+      });
+    } catch (fallbackError) {
+      console.error("Market fallback error:", fallbackError.message || fallbackError);
+      return {
+        success: true,
+        xlm: FALLBACK_XLM_PRICE,
+        source: "cached",
+        timestamp: nowIso()
+      };
+    }
   }
 }
 
@@ -95,15 +130,26 @@ async function getSymbolPrice(symbol) {
 }
 
 async function getXLMPrice() {
-  const ticker = await getSymbolPrice("XLMUSDT");
-  return {
-    success: true,
-    symbol: ticker.symbol,
-    price: ticker.price,
-    change24h: ticker.change24h,
-    source: ticker.source,
-    timestamp: ticker.timestamp
-  };
+  try {
+    const ticker = await getSymbolPrice("XLMUSDT");
+    return {
+      success: true,
+      symbol: ticker.symbol,
+      price: ticker.price,
+      xlm: Number(ticker.price) || cachedXlm.price,
+      change24h: ticker.change24h,
+      source: ticker.source,
+      timestamp: ticker.timestamp
+    };
+  } catch (error) {
+    console.error("XLM market error:", error.message || error);
+    return {
+      success: true,
+      xlm: cachedXlm.price || FALLBACK_XLM_PRICE,
+      source: "cached",
+      timestamp: nowIso()
+    };
+  }
 }
 
 module.exports = {

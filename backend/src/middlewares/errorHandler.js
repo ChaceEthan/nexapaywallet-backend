@@ -30,12 +30,19 @@ function globalErrorHandler(error, req, res, next) {
     message = "Duplicate resource";
   }
 
-  const response = {
-    success: false,
-    message: statusCode >= 500 ? "Internal server error" : message
-  };
+  const response = statusCode >= 500
+    ? {
+      success: false,
+      message: error.message || "Internal server error",
+      error: error.message || "Internal server error"
+    }
+    : {
+      success: false,
+      message,
+      error: message
+    };
 
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && statusCode < 500) {
     response.error = error.message;
     response.stack = error.stack;
   }

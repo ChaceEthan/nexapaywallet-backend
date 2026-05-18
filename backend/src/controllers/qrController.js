@@ -3,6 +3,13 @@ const { validateAddressString } = require("../utils/addressValidator");
 
 const STELLAR_ADDRESS_PATTERN = /G[A-Z2-7]{55}/i;
 
+function isDatabaseUnavailable(error) {
+  return [
+    "MongoServerSelectionError",
+    "MongooseServerSelectionError"
+  ].includes(error?.name) || /buffering timed out|not connected|topology|initial connection/i.test(error?.message || "");
+}
+
 function normalizeAmount(amount) {
   if (amount === undefined || amount === null || amount === "") return null;
 
@@ -116,9 +123,16 @@ function parseQrPayload(payload) {
 async function resolveAddress(req, res) {
   try {
     const parsed = parseQrPayload(req.params.address);
-    const profile = await WalletProfile.findOne({
-      address: parsed.address
-    });
+    let profile = null;
+
+    try {
+      profile = await WalletProfile.findOne({
+        address: parsed.address
+      });
+    } catch (error) {
+      if (!isDatabaseUnavailable(error)) throw error;
+      console.warn("QR profile lookup degraded:", error.message);
+    }
 
     const response = {
       isValid: true,

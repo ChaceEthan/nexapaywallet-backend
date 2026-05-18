@@ -5,6 +5,7 @@ const BINANCE_WS_URL = process.env.BINANCE_WS_URL || "wss://stream.binance.com:9
 const RECONNECT_MS = Math.max(Number(process.env.BINANCE_WS_RECONNECT_MS || 5000), 1000);
 const HEARTBEAT_MS = Math.max(Number(process.env.BINANCE_WS_HEARTBEAT_MS || 30000), 5000);
 const STREAMS = ["xlmusdt@ticker", "btcusdt@ticker", "ethusdt@ticker"];
+let activeMarketSocket = null;
 
 function normalizeTicker(payload) {
   if (!payload?.s || !payload?.c) return null;
@@ -25,16 +26,30 @@ function createCorsOrigin(allowedOrigins = []) {
 }
 
 function initializeBinanceSocket(server, options = {}) {
-  const io = new Server(server, {
-    path: "/ws/market",
-    pingInterval: HEARTBEAT_MS,
-    pingTimeout: Math.max(Math.floor(HEARTBEAT_MS / 2), 5000),
-    cors: {
-      origin: createCorsOrigin(options.allowedOrigins),
-      methods: ["GET", "POST"],
-      credentials: true
-    }
-  });
+  if (activeMarketSocket && !activeMarketSocket.closed) {
+    return activeMarketSocket;
+  }
+
+  let io = null;
+
+  try {
+    io = new Server(server, {
+      path: "/ws/market",
+      pingInterval: HEARTBEAT_MS,
+      pingTimeout: Math.max(Math.floor(HEARTBEAT_MS / 2), 5000),
+      cors: {
+        origin: createCorsOrigin(options.allowedOrigins),
+        methods: ["GET", "POST"],
+        credentials: true
+      }
+    });
+  } catch (error) {
+    console.error("Socket.IO initialization failed:", error.message || error);
+    return {
+      io: null,
+      close: () => {}
+    };
+  }
 
   let socket = null;
   let reconnectTimer = null;
@@ -61,6 +76,14 @@ function initializeBinanceSocket(server, options = {}) {
     }
   }
 
+  function safeBroadcast(event, payload) {
+    try {
+      if (io) io.emit(event, payload);
+    } catch (error) {
+      console.error("Market websocket broadcast failed:", error.message || error);
+    }
+  }
+
   function connect() {
     if (shuttingDown) return;
 
@@ -72,12 +95,18 @@ function initializeBinanceSocket(server, options = {}) {
       socket = new WebSocket(BINANCE_WS_URL);
 
       socket.on("open", () => {
-        console.log("Binance Connected");
-        socket.send(JSON.stringify({
-          method: "SUBSCRIBE",
-          params: STREAMS,
-          id: Date.now()
-        }));
+        console.log("Binance market stream connected");
+        try {
+          socket.send(JSON.stringify({
+            method: "SUBSCRIBE",
+            params: STREAMS,
+            id: Date.now()
+          }));
+        } catch (error) {
+          console.error("Binance subscribe failed:", error.message || error);
+          scheduleReconnect();
+          return;
+        }
 
         clearHeartbeat();
         heartbeatTimer = setInterval(() => {
@@ -103,35 +132,65 @@ function initializeBinanceSocket(server, options = {}) {
           const data = JSON.parse(message.toString());
           const ticker = normalizeTicker(data);
           if (ticker) {
-            io.emit("market:update", ticker);
+            safeBroadcast("market:update", ticker);
           }
-        } catch {
-          // Ignore malformed upstream frames.
+        } catch (error) {
+          console.warn("Ignored malformed market websocket frame:", error.message || error);
         }
       });
 
-      socket.on("error", () => {
+      socket.on("error", (error) => {
+        console.error("Binance websocket error:", error.message || error);
         if (socket?.readyState === WebSocket.OPEN) socket.close();
+        else scheduleReconnect();
       });
 
-      socket.on("close", scheduleReconnect);
-    } catch {
+      socket.on("close", (code, reason) => {
+        console.warn("Binance websocket closed:", code, reason?.toString?.() || "");
+        scheduleReconnect();
+      });
+    } catch (error) {
+      console.error("Binance websocket setup failed:", error.message || error);
       scheduleReconnect();
     }
   }
 
-  connect();
+  io.on("connection", (client) => {
+    client.on("error", (error) => {
+      console.error("Market websocket client error:", error.message || error);
+    });
+  });
 
-  return {
+  io.engine.on("connection_error", (error) => {
+    console.error("Market websocket handshake error:", error.message || error);
+  });
+
+  const controller = {
     io,
+    closed: false,
     close: () => {
+      controller.closed = true;
       shuttingDown = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
       clearHeartbeat();
-      if (socket) socket.close();
-      io.close();
+      if (socket) {
+        try {
+          socket.close();
+        } catch {
+          socket.terminate();
+        }
+      }
+      if (io) io.close();
+      if (activeMarketSocket === controller) {
+        activeMarketSocket = null;
+      }
     }
   };
+
+  activeMarketSocket = controller;
+  connect();
+
+  return controller;
 }
 
 module.exports = {

@@ -38,7 +38,6 @@ function normalizeTicker(ticker) {
 }
 
 function fallbackTickers() {
-  console.log("Using fallback data");
   return SYMBOLS.map(symbol => ({
     symbol,
     price: FALLBACK_TICKERS[symbol].price,

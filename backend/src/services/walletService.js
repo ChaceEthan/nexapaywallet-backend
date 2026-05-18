@@ -1,6 +1,7 @@
 const StellarSDK = require("@stellar/stellar-sdk");
 const User = require("../models/User");
 const { isValidStellarAddress, isValidStellarSecret } = require("../utils/network");
+const { normalizeAndValidatePhrase } = require("../utils/mnemonicValidator");
 
 function makeError(statusCode, message) {
   const error = new Error(message);
@@ -31,6 +32,33 @@ function deriveAddressFromSecret(secretKey) {
 function assertRecoveryConfirmed(recoveryConfirmed) {
   if (recoveryConfirmed !== true) {
     throw makeError(409, "Recovery confirmation is required before this wallet action");
+  }
+}
+
+function getProvidedRecoveryPhrase(payload = {}) {
+  for (const key of ["recoveryPhrase", "mnemonic", "seedPhrase"]) {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) {
+      return {
+        provided: true,
+        value: payload[key]
+      };
+    }
+  }
+
+  return {
+    provided: false,
+    value: null
+  };
+}
+
+function validateProvidedRecoveryPhrase(payload = {}) {
+  const phrase = getProvidedRecoveryPhrase(payload);
+  if (!phrase.provided) return null;
+
+  try {
+    return normalizeAndValidatePhrase(phrase.value);
+  } catch (error) {
+    throw makeError(400, `Invalid recovery phrase: ${error.message}`);
   }
 }
 
@@ -97,6 +125,7 @@ async function setActiveWallet(userId, walletAddress) {
 
 async function createWallet(userId, payload = {}) {
   assertRecoveryConfirmed(payload.recoveryConfirmed);
+  validateProvidedRecoveryPhrase(payload);
 
   const keypair = StellarSDK.Keypair.random();
   const walletAddress = keypair.publicKey();
@@ -116,6 +145,7 @@ async function createWallet(userId, payload = {}) {
 
 async function importWallet(userId, payload = {}) {
   assertRecoveryConfirmed(payload.recoveryConfirmed);
+  validateProvidedRecoveryPhrase(payload);
 
   const identity = getWalletIdentity(payload);
   const user = await setActiveWallet(userId, identity.walletAddress);
@@ -163,11 +193,34 @@ async function disconnectWallet(userId, payload = {}) {
   return user;
 }
 
+async function fundTestnetAccount(publicKey) {
+  try {
+    const normalizedPublicKey = normalizeAddress(publicKey);
+    const res = await fetch(
+      `https://friendbot.stellar.org?addr=${encodeURIComponent(normalizedPublicKey)}`
+    );
+
+    if (res.status === 429) {
+      throw new Error("Friendbot rate limited");
+    }
+
+    if (!res.ok) {
+      throw new Error("Friendbot unavailable");
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Friendbot error:", error);
+    throw new Error("Could not connect to Friendbot");
+  }
+}
+
 module.exports = {
   normalizeAddress,
   deriveAddressFromSecret,
   createWallet,
   importWallet,
   switchWallet,
-  disconnectWallet
+  disconnectWallet,
+  fundTestnetAccount
 };

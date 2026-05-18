@@ -10,6 +10,8 @@ const { verifyToken } = require("../middlewares/auth");
 
 router.post("/auth/signup", signup);
 router.post("/auth/signin", signin);
+router.post("/register", signup);
+router.post("/login", signin);
 
 router.get("/auth/me", verifyToken, async (req, res) => {
   try {
